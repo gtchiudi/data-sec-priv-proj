@@ -1,5 +1,7 @@
 from django.db import models
 import uuid
+import random
+import faker
 
 
 class health(models.Model):

@@ -1,3 +1,10 @@
 from django.contrib import admin
+from .models import *
 
-# Register your models here.
+
+class requestListView(admin.ModelAdmin):
+    list_display = ('firstName', 'lastName', 'gender',
+                    'height', 'weight', 'age', 'healthHistory')
+
+
+admin.site.register(health, requestListView)
