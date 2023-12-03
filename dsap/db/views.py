@@ -1,4 +1,5 @@
 import os
+import hashlib
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
@@ -55,5 +56,23 @@ def handshake(request):
 
 class healthView(View):
     def get(self, request, *args, **kwargs):
-        serialized_data = list(health.objects.all().values())
+        # Retrieve data from the 'health' model
+        health_data = list(health.objects.all().values())
+
+        # Calculate the hash of each row and append hash to the row
+        for row in health_data:
+            row_str = str(row).encode('utf-8')  # Convert to bytes for hashing
+            row_hash = hashlib.sha256(row_str).hexdigest()
+            row['hash'] = row_hash
+
+        # Calculate the hash of concatenated row hashes
+        concatenated_hashes = ''.join(row['hash'] for row in health_data)
+        query_hash = hashlib.sha256(
+            concatenated_hashes.encode('utf-8')).hexdigest()
+
+        # Send the data along with the cumulative hash of row hashes as JSON response
+        serialized_data = {
+            "data": health_data,
+            "query_hash": query_hash
+        }
         return JsonResponse(serialized_data, safe=False)
