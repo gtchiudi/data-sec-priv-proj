@@ -3,6 +3,6 @@ from . import views
 from django.contrib import admin
 
 urlpatterns = [
-    path("", views.index, name="index"),
-    path('admin/', admin.site.urls)
+    path('handshake/', views.handshake, name='handshake'),
+    path('health/', views.healthView.as_view(), name='health'),
 ]
