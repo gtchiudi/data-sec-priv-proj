@@ -56,6 +56,7 @@ class User(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = models.CharField(max_length=64)
     # Increased max_length to accommodate hashed password
+    salt = models.CharField(max_length=128)
     password = models.CharField(max_length=128)
     group = models.CharField(max_length=64)
 
