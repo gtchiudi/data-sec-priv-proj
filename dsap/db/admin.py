@@ -3,8 +3,8 @@ from .models import *
 
 
 class requestListView(admin.ModelAdmin):
-    list_display = ('firstName', 'lastName', 'gender',
-                    'height', 'weight', 'age', 'healthHistory')
+    list_display = ('firstName', 'lastName', 'encrypted_gender',
+                    'height', 'weight', 'encrypted_age', 'healthHistory')
 
 
 admin.site.register(health, requestListView)

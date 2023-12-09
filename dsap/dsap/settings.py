@@ -21,7 +21,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-kl1k1s0t&(i&&1!@m*(32-k3eth*dp-r6h8&gq#o5zx%nsvhxu'
-
+AES_KEY = '98f33528a8704b750e606412f72159674f8ef26dfd977af2badf1f2bed61c763'
+FERNET_KEY = 'ixqgXAS0sJ_bJiMxyRo8e4gfprn2Re00Do6AgX26fv8='
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_cryptography',
 ]
 
 MIDDLEWARE = [
@@ -124,3 +126,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # SECURE_SSL_REDIRECT = True
 # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# CRYPTOGRAPHY_BACKEND = 'cryptography.hazmat.backends.default_backend()'
+# CRYPTOGRAPHY_DIGEST = 'cryptography.hasmat.primitives.hashes.SHA256'
+# CRYPTOGRAPHY_SALT = 'django-cryptography'
