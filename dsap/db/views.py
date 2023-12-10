@@ -55,9 +55,17 @@ def handshake(request):
 
 
 class healthView(View):
-    def get(self, request, *args, **kwargs):
+    def get(self, request, group, *args, **kwargs):
         # Retrieve data from the 'health' model
-        health_data = list(health.objects.all().values())
+        if group == 'H':
+            health_data_items = health.objects.all()
+        elif group == 'R':
+            # Exclude 'firstName' and 'lastName' for group R
+            health_data_items = health.objects.values('id', 'gender', 'age', 'weight', 'height', 'healthHistory')
+        else:
+            return JsonResponse({'error': 'Invalid group'}, status=400)
+        #---------------------------------------------------
+        health_data = list(health_data_items.all().values()) #health_data_items=health.object
 
         # Calculate the hash of each row and append hash to the row
         for row in health_data:
@@ -76,3 +84,32 @@ class healthView(View):
             "query_hash": query_hash
         }
         return JsonResponse(serialized_data, safe=False)
+    
+    def post(self, request, group, *args, **kwargs):
+        if request.method == 'POST':
+            # group besides H cannot access adding item
+            if group != 'H':
+                return JsonResponse({'error': 'Unauthorized access'}, status=403)
+
+            # To extract data from the POST request
+            first_name = request.POST.get('firstName')
+            last_name = request.POST.get('lastName')
+            gender = request.POST.get('gender')
+            age = request.POST.get('age')
+            weight = request.POST.get('weight')
+            height = request.POST.get('height')
+            health_history = request.POST.get('healthHistory')
+
+            # Save new health data item
+            new_health_data_item = health(
+                firstName=first_name,
+                lastName=last_name,
+                gender=gender,
+                age=age,
+                weight=weight,
+                height=height,
+                healthHistory=health_history
+            )
+            new_health_data_item.save()
+
+            return JsonResponse({'message': 'Health data item added successfully'})
