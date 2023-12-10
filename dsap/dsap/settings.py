@@ -28,10 +28,12 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+AUTH_USER_MODEL = 'db.User'
 
 # Application definition
 
 INSTALLED_APPS = [
+    'rest_framework.authtoken',
     'db.apps.DbConfig',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -71,6 +73,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'dsap.wsgi.application'
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases

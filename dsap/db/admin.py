@@ -8,3 +8,4 @@ class requestListView(admin.ModelAdmin):
 
 
 admin.site.register(health, requestListView)
+admin.site.register(User)
