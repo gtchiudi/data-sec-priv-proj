@@ -67,7 +67,7 @@ class LoginView(APIView):
 
             user = User.objects.filter(username=username).first()
             if not user:
-                return Response({'error': 'Invalid username'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Invalid username or password'}, status=status.HTTP_400_BAD_REQUEST)
             # calculate the key using the users salt.
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
@@ -83,7 +83,7 @@ class LoginView(APIView):
                 token, created = Token.objects.get_or_create(user=user)
                 return Response({'token': token.key, 'message': 'Login successful'})
             else:
-                return Response({'error': 'Invalid password'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Invalid username or password'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
