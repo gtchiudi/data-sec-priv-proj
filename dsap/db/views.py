@@ -1,22 +1,26 @@
-from rest_framework.authtoken.models import Token
-import os
 import hashlib
+import hmac
+import json
+import secrets
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.backends import default_backend
-from django.http import JsonResponse
-from rest_framework.views import APIView
-from .models import health, User
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from django.http import JsonResponse
+from django.conf import settings
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import LoginSerializer
+from rest_framework.authtoken.models import Token
+from rest_framework.views import APIView
 from rest_framework import status
+from .models import Health, User
+from .serializers import LoginSerializer
+from .utils import decrypt_bool, decrypt_int, encrypt_aes
 
 
 def handshake(request):
+    # Only POST method is allowed
     if request.method == 'POST':
         # Receive client's public key
         client_public_key_pem = request.POST.get('public_key')
@@ -24,7 +28,7 @@ def handshake(request):
         if not client_public_key_pem:
             return JsonResponse({'error': "No public key received"}, status=400)
 
-        # Load client's public key
+        # Load client's public RSA key
         try:
             client_public_key = serialization.load_pem_public_key(
                 client_public_key_pem.encode(),
@@ -34,22 +38,15 @@ def handshake(request):
             return JsonResponse({'error': "Invalid public key format: {e}"}, status=400)
 
         try:
-            # Generate AES key
-            aes_key = os.urandom(32)  # Example: Using 256-bit key
-
             # Encrypt AES key with client's public RSA key
             encrypted_sha_key = client_public_key.encrypt(
-                aes_key,
+                settings.AES_KEY,
                 padding.OAEP(
                     mgf=padding.MGF1(algorithm=hashes.SHA256()),
                     algorithm=hashes.SHA256(),
                     label=None
                 )
             )
-
-            # Simulate storing the AES key (should be securely managed in production)
-            # For demonstration, you can store it in a session variable or database
-            request.session['stored_aes_key'] = aes_key.hex()
 
             # Send the encrypted AES key back to the client
             return JsonResponse({'encrypted_aes_key': encrypted_sha_key.hex()}, status=200)
@@ -59,11 +56,10 @@ def handshake(request):
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-# http methods: ["get", "post", "put", "patch", "delete", "head", "options", "trace"]
-
 
 class LoginView(APIView):
     def post(self, request):
+        # Serialize the request login data
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             username = serializer.validated_data['username']
@@ -72,7 +68,7 @@ class LoginView(APIView):
             user = User.objects.filter(username=username).first()
             if not user:
                 return Response({'error': 'Invalid username'}, status=status.HTTP_400_BAD_REQUEST)
-
+            # calculate the key using the users salt.
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
                 iterations=150000,
@@ -81,6 +77,7 @@ class LoginView(APIView):
             )
             hashed_password = kdf.derive(password.encode('utf-8')).hex()
 
+            # Compare the hashed password key to the stored hashed password
             if hashed_password == user.password:
                 # User is authenticated, generate or retrieve the token
                 token, created = Token.objects.get_or_create(user=user)
@@ -96,16 +93,16 @@ class HealthView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        # Retrieve data from the 'health' model
+        # Retrieve data from the 'Health' model
         group = request.user.group
 
         if group == 'H':
             # Fetch all fields for group 'H'
-            health_data_items = health.objects.all().values()
+            health_data_items = Health.objects.all().values()
             health_data = list(health_data_items)
         elif group == 'R':
             # Exclude 'firstName' and 'lastName' for group 'R'
-            health_data_items = health.objects.all().values()
+            health_data_items = Health.objects.all().values()
             health_data = list(health_data_items)
             for row in health_data:
                 del row['firstName']
@@ -113,22 +110,42 @@ class HealthView(APIView):
         else:
             return JsonResponse({'error': 'Invalid group'}, status=400)
 
-        # Calculate the hash of each row and append hash to the row
+        # Perform decryption for specific fields
+        for row in health_data:
+            if 'encrypted_gender' in row:
+                row['gender'] = decrypt_bool(row['encrypted_gender'])
+                del row['encrypted_gender']
+            if 'encrypted_age' in row:
+                row['age'] = decrypt_int(row['encrypted_age'])
+                del row['encrypted_age']
+
+        # Create an HMAC key
+        hmac_key = secrets.token_bytes(32)  # Generate a random key
+
+        # Calculate the HMAC hash of each row
         for row in health_data:
             del row['id']  # Remove 'id' field from the row
-            row_str = str(row).encode('utf-8')  # Convert to bytes for hashing
-            row_hash = hashlib.sha256(row_str).hexdigest()
-            row['hash'] = row_hash
+            row_json = json.dumps(row, sort_keys=True).encode(
+                'utf-8')  # Convert row to JSON
+            row_hmac = hmac.new(hmac_key, row_json, hashlib.sha256).hexdigest()
+            row['hash'] = row_hmac
 
-        # Calculate the hash of concatenated row hashes
+        # Calculate the HMAC hash of concatenated row hashes
         concatenated_hashes = ''.join(row['hash'] for row in health_data)
-        query_hash = hashlib.sha256(
-            concatenated_hashes.encode('utf-8')).hexdigest()
+        query_hmac = hmac.new(hmac_key, concatenated_hashes.encode(
+            'utf-8'), hashlib.sha256).hexdigest()
 
-        # Prepare the serialized data with the cumulative hash of row hashes as JSON response
+        # Encrypt the HMAC key using settings.AES_KEY
+        encrypted_hmac_key, iv = encrypt_aes(
+            bytes.fromhex(settings.AES_KEY), hmac_key)
+
+        # Prepare the serialized data with HMAC hash and encrypted key as JSON response
         serialized_data = {
             "data": health_data,
-            "query_hash": query_hash
+            "query_hash": query_hmac,
+            "iv": iv.hex(),
+            # Assuming encrypted_hmac_key is in bytes
+            "encrypted_hmac_key": encrypted_hmac_key.hex()
         }
         return JsonResponse(serialized_data, safe=False)
 
@@ -148,7 +165,7 @@ class HealthView(APIView):
         health_history = request.POST.get('healthHistory')
 
         # Save new health data item
-        new_health_data_item = health(
+        new_health_data_item = Health(
             firstName=first_name,
             lastName=last_name,
             encrypted_gender=gender,

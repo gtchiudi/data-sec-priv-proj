@@ -10,21 +10,38 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import environ
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False)
+)
 
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+DEBUG = env('DEBUG')  # False if not in os.environ
+FERNET_KEY = env('FERNET_KEY')
+AES_KEY = env('AES_KEY')
+SECRET_KEY = env('SECRET_KEY')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-kl1k1s0t&(i&&1!@m*(32-k3eth*dp-r6h8&gq#o5zx%nsvhxu'
-AES_KEY = '98f33528a8704b750e606412f72159674f8ef26dfd977af2badf1f2bed61c763'
-FERNET_KEY = 'ixqgXAS0sJ_bJiMxyRo8e4gfprn2Re00Do6AgX26fv8='
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# CACHES = {
+#     # Read os.environ['CACHE_URL'] and raises
+#     # ImproperlyConfigured exception if not found.
+#     #
+#     # The cache() method is an alias for cache_url().
+#     'default': env.cache(),
+
+#     # read os.environ['REDIS_URL']
+#     'redis': env.cache_url('REDIS_URL')
+# }
+
 
 ALLOWED_HOSTS = []
 

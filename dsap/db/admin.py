@@ -7,5 +7,5 @@ class requestListView(admin.ModelAdmin):
                     'height', 'weight', 'encrypted_age', 'healthHistory')
 
 
-admin.site.register(health, requestListView)
+admin.site.register(Health, requestListView)
 admin.site.register(User)
